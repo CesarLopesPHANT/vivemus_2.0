@@ -1,26 +1,17 @@
 {
-  "name": "vivemus-monorepo",
+  "name": "@vivemus/web",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
     "dev": "vite",
-    "dev:web": "npm run dev --workspace=@vivemus/web",
-    "dev:mobile": "npm run dev --workspace=@vivemus/mobile-patient",
     "build": "vite build",
-    "build:web": "npm run build --workspace=@vivemus/web",
-    "build:mobile": "npm run build --workspace=@vivemus/mobile-patient",
-    "build:all": "npm run build:web && npm run build:mobile",
-    "preview": "vite preview",
-    "start": "serve dist -s -l 3000"
+    "preview": "vite preview"
   },
   "dependencies": {
+    "@vivemus/shared": "*",
+    "@vivemus/patient-ui": "*",
     "@google/genai": "^1.34.0",
-    "serve": "^14.2.0",
     "@supabase/supabase-js": "^2.78.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
@@ -32,7 +23,6 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
-    "supabase": "^2.76.5",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
