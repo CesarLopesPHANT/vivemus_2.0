@@ -21,7 +21,7 @@
 
     "preview": "npm run preview --workspace=@vivemus/web",
 
-    "start": "serve -s apps/web/dist -l $PORT"
+    "start": "serve -s apps/web/dist --listen 3000"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
