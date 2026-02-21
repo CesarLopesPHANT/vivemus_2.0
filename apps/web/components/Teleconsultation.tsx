@@ -285,7 +285,7 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
   // ===== RENDER: In-call (EmbeddedBrowser com iframe) =====
   if (stage === 'call' && roomUrl) {
     return (
-      <div style={{ height: 'calc(100vh - 5rem)' }}>
+      <div style={{ height: 'calc(100vh - 3.5rem)', overflow: 'hidden' }}>
         <EmbeddedBrowser
           url={roomUrl}
           personId={personId || undefined}

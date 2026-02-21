@@ -237,8 +237,8 @@ const EmbeddedBrowser: React.FC<EmbeddedBrowserProps> = ({
         />
       )}
 
-      {/* Iframe - full frame */}
-      <div className="flex-1 relative">
+      {/* Iframe - full frame (overflow-hidden impede scroll externo) */}
+      <div className="flex-1 relative overflow-hidden">
         {/* Loading */}
         {isLoading && (
           <div className="absolute inset-0 z-10 bg-white flex flex-col items-center justify-center">

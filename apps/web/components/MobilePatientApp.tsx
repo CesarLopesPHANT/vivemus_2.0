@@ -264,7 +264,7 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
   };
 
   // Verifica se esta em uma tela secundaria (sem bottom nav)
-  const isSecondaryScreen = ['pharmacy', 'partner'].includes(activeTab);
+  const isSecondaryScreen = ['pharmacy', 'partner', 'consultation'].includes(activeTab);
 
   // Mostra banner flutuante quando consulta ativa e usuario esta em outra aba
   const showConsultationBanner = consultationActive && activeTab !== 'consultation';
@@ -302,7 +302,7 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
       )}
 
       {/* Conteudo Principal */}
-      <main className={`flex-1 overflow-y-auto ${isSecondaryScreen ? '' : 'pb-20'} ${showConsultationBanner ? 'pt-10' : ''}`}>
+      <main className={`flex-1 ${activeTab === 'consultation' ? 'overflow-hidden' : 'overflow-y-auto'} ${isSecondaryScreen ? '' : 'pb-20'} ${showConsultationBanner ? 'pt-10' : ''}`}>
         <div className={activeTab === 'consultation' ? '' : 'px-4 py-4 sm:px-6 lg:px-8'}>
           {renderContent()}
         </div>
