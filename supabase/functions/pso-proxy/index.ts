@@ -246,6 +246,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ========== ETAPA 4: Buscar/cadastrar na DAV ==========
+    // Fluxo: person_id local → busca por CPF na DAV → cadastro na DAV → PSO
     let personId = paciente.person_id;
     const cleanCPF = paciente.cpf.replace(/\D/g, "");
 
@@ -404,7 +405,7 @@ Deno.serve(async (req: Request) => {
             .eq("user_id", userId);
         } else {
           try {
-            const { error: upsertErr } = await supabase
+            await supabase
               .from("telemedicina_pacientes")
               .upsert({
                 user_id: userId,
@@ -417,12 +418,6 @@ Deno.serve(async (req: Request) => {
                 plan_status: paciente.plan_status || "ACTIVE",
                 timezone: paciente.timezone || "America/Cuiaba",
               }, { onConflict: "user_id" });
-            if (upsertErr) {
-              await writeLog(userId, userEmail, "PSO_DB", `Erro ao salvar telemedicina_pacientes: ${upsertErr.message}`, "ERROR", {
-                step: "4c_PERSIST",
-                error: upsertErr.message,
-              });
-            }
           } catch (e: any) {
             await writeLog(userId, userEmail, "PSO_DB", `Erro ao salvar telemedicina_pacientes: ${e.message}`, "ERROR", {
               step: "4c_PERSIST",
@@ -433,7 +428,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ========== ETAPA 5: Gerar PSO ==========
+    // ========== ETAPA 5: Gerar PSO via /credential/pso/person/{personId} ==========
     // Guard: personId deve existir antes de gerar PSO
     if (!personId) {
       await writeLog(userId, userEmail, "PSO_GENERATE", "person_id nulo/undefined antes de gerar PSO", "ERROR", {
@@ -460,6 +455,14 @@ Deno.serve(async (req: Request) => {
       psoStatus = psoRes.status;
       psoResponseBody = await psoRes.text();
 
+      await writeLog(userId, userEmail, "PSO_GENERATE", `POST /credential/pso/person/${personId} retornou HTTP ${psoStatus}`, psoRes.ok ? "SUCCESS" : "ERROR", {
+        step: "5_PSO_RAW_RESPONSE",
+        dav_status: psoStatus,
+        full_body: psoResponseBody.substring(0, 2000),
+        person_id: personId,
+        endpoint: `${DAV_BASE_URL}/credential/pso/person/${personId}`,
+      });
+
       // Recovery 404: person_id pode estar obsoleto na DAV - re-buscar/cadastrar e tentar novamente
       if (psoStatus === 404) {
         await writeLog(userId, userEmail, "PSO_GENERATE", `PSO 404 para person_id ${personId} - tentando recovery`, "ALERT", {
@@ -467,7 +470,6 @@ Deno.serve(async (req: Request) => {
           person_id: personId,
         });
 
-        // Re-buscar por CPF na DAV
         let recoveredPersonId: string | null = null;
         try {
           const retryBusca = await fetch(`${DAV_BASE_URL}/person/cpf/${cleanCPF}`, { headers: davHeaders });
@@ -479,7 +481,6 @@ Deno.serve(async (req: Request) => {
           }
         } catch {}
 
-        // Se nao encontrou, re-cadastrar
         if (!recoveredPersonId) {
           try {
             const reCreateRes = await fetch(`${DAV_BASE_URL}/person`, {
@@ -501,7 +502,6 @@ Deno.serve(async (req: Request) => {
               const reCreateData = await reCreateRes.json();
               if (reCreateData?.id) recoveredPersonId = reCreateData.id;
             } else if (reCreateRes.status === 409 || reCreateRes.status === 422) {
-              // CPF ja existe - buscar novamente
               const retryBusca2 = await fetch(`${DAV_BASE_URL}/person/cpf/${cleanCPF}`, { headers: davHeaders });
               if (retryBusca2.ok) {
                 const retryData2 = await retryBusca2.json();
@@ -512,13 +512,10 @@ Deno.serve(async (req: Request) => {
         }
 
         if (recoveredPersonId) {
-          // Atualizar person_id no banco local
           await supabase
             .from("telemedicina_pacientes")
-            .upsert({ user_id: userId, person_id: recoveredPersonId, cpf: cleanCPF }, { onConflict: "user_id" })
-            .then(() => {});
+            .upsert({ user_id: userId, person_id: recoveredPersonId, cpf: cleanCPF }, { onConflict: "user_id" });
 
-          // Retry PSO com o person_id correto
           const retryPso = await fetch(
             `${DAV_BASE_URL}/credential/pso/person/${recoveredPersonId}`,
             { method: "POST", headers: davHeaders }
@@ -531,11 +528,9 @@ Deno.serve(async (req: Request) => {
 
             await writeLog(userId, userEmail, "PSO_GENERATE", `Recovery 404 OK - novo person_id: ${recoveredPersonId}`, "SUCCESS", {
               step: "5_PSO_RECOVERY_OK",
-              old_person_id: personId,
               new_person_id: recoveredPersonId,
             });
           } else {
-            // Recovery falhou - retorna erro original
             psoStatus = retryPso.status;
             psoResponseBody = await retryPso.text();
           }
@@ -602,6 +597,7 @@ Deno.serve(async (req: Request) => {
       pso_id: psoData.id,
       source,
       url: psoUrl,
+      endpoint_used: `POST /credential/pso/person/${personId}`,
     });
 
     return jsonResponse({ success: true, url: psoUrl, personId }, req);

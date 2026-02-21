@@ -11,6 +11,7 @@ const DAV_API_KEY = Deno.env.get("DAV_API_KEY")!;
 const DAV_BASE_URL = Deno.env.get("DAV_BASE_URL") || "https://api.v2.doutoraovivo.com.br";
 const REPORT_URL = "https://api.doutoraovivo.com.br/report";
 const PROTOCOL_URL = "https://api.v2.doutoraovivo.com.br/protocol";
+const PORTAL_URL = "https://vivemus.dav.med.br";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -22,6 +23,30 @@ const davHeaders = {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// Silent PSO: gera token PSO via POST /credential/pso/person/{personId}
+const gerarPSOSilencioso = async (
+  cleanCPF: string,
+  personId?: string | null
+): Promise<{ url?: string; personId?: string } | null> => {
+  if (!personId) return null;
+
+  try {
+    const psoRes = await fetch(
+      `${DAV_BASE_URL}/credential/pso/person/${personId}`,
+      { method: "POST", headers: davHeaders }
+    );
+    if (!psoRes.ok) return null;
+
+    const psoData = await psoRes.json();
+    if (!psoData.id) return null;
+
+    const url = `${PORTAL_URL}/pso/${psoData.id}/emergency`;
+    return { url, personId: personId || undefined };
+  } catch {
+    return null;
+  }
 };
 
 Deno.serve(async (req: Request) => {
@@ -65,8 +90,9 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (!paciente || !paciente.person_id) {
+      // Sem person_id nao e possivel sincronizar nem gerar PSO
       return new Response(
-        JSON.stringify({ success: true, synced: false, reason: "Paciente sem person_id" }),
+        JSON.stringify({ success: true, synced: false, reason: "Paciente sem person_id", pso: null }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -78,8 +104,10 @@ Deno.serve(async (req: Request) => {
       const diffMinutes = (now.getTime() - lastSync.getTime()) / (1000 * 60);
 
       if (diffMinutes < 60) {
+        // Sync rate-limited, mas gera PSO fresco
+        const pso = await gerarPSOSilencioso(paciente.cpf.replace(/\D/g, ""), paciente.person_id);
         return new Response(
-          JSON.stringify({ success: true, synced: false, reason: "Sync recente" }),
+          JSON.stringify({ success: true, synced: false, reason: "Sync recente", pso }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -223,12 +251,16 @@ Deno.serve(async (req: Request) => {
       created_at: new Date().toISOString(),
     });
 
+    // 7. Gerar PSO preventivo (Silent PSO)
+    const pso = await gerarPSOSilencioso(cleanCPF, paciente.person_id);
+
     return new Response(
       JSON.stringify({
         success: true,
         synced: true,
         novosRegistros,
         novosDocumentos,
+        pso,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

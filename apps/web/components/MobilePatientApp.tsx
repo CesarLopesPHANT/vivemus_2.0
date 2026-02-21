@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Home,
   Calendar,
@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import { UserData, View } from '../App';
 import { Partner, UserExam } from '../types';
-import { buscarHistoricoPaciente, obterLinkPSO, ConsultaAgendamento, ProtocoloFilaVirtual } from '../services/draovivoService';
+import { buscarHistoricoPaciente, ConsultaAgendamento, ProtocoloFilaVirtual } from '../services/draovivoService';
+import { usePSOCache } from '../context/PSOCacheContext';
 import { supabase } from '../lib/supabase';
 import StartScreen from './StartScreen';
 import Schedule from './Schedule';
@@ -46,9 +47,8 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
   const [consultationActive, setConsultationActive] = useState(false);
   const [consultationUrl, setConsultationUrl] = useState<string | null>(null);
 
-  // PSO pre-fetch: cache do link gerado em background para acesso instantaneo
-  const [prefetchedPSO, setPrefetchedPSO] = useState<{ url: string; personId?: string; fetchedAt: number } | null>(null);
-  const psoRefreshRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  // PSO cache global (via PSOCacheContext — 30min TTL, refresh a cada 25min)
+  const { psoCache, isValid: psoIsValid, invalidate: invalidatePSO, refresh: refreshPSO } = usePSOCache();
 
   // Dados reais do paciente
   const [consultas, setConsultas] = useState<ConsultaAgendamento[]>([]);
@@ -60,89 +60,80 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
   const [sectionConfig, setSectionConfig] = useState<PatientSectionsConfig>(DEFAULT_PATIENT_SECTIONS);
   const [sectionConfigLoaded, setSectionConfigLoaded] = useState(false);
 
-  // Fetch dados reais ao montar
+  // Inicializacao consolidada — carrega section config + dados do paciente em paralelo
+  // Evita o flicker de 2 fases (primeiro loading do config, depois loading dos dados)
   useEffect(() => {
-    const fetchPatientData = async () => {
-      setLoadingData(true);
-      try {
-        // Buscar historico de consultas via Dr. ao Vivo API
-        const historico = await buscarHistoricoPaciente(user.cpf);
-        setConsultas(historico.consultas);
-        setProtocolos(historico.protocolos);
+    let cancelled = false;
 
-        // Buscar documentos medicos do Supabase
-        const { data: docs } = await supabase
-          .from('medical_documents')
-          .select('*')
-          .eq('person_id', user.id)
-          .order('data_emissao', { ascending: false });
+    const initialize = async () => {
+      const [_sectionResult, _dataResult] = await Promise.allSettled([
+        // 1. Config de modulos visiveis
+        (async () => {
+          try {
+            const { data } = await supabase
+              .from('system_settings')
+              .select('value')
+              .eq('key', 'patient_sections')
+              .maybeSingle();
+            if (!cancelled && data?.value) {
+              setSectionConfig(prev => ({ ...prev, ...data.value }));
+            }
+          } catch (err) {
+            console.error('Erro ao buscar config de secoes:', err);
+          }
+        })(),
 
-        if (docs && docs.length > 0) {
-          const mappedExams: UserExam[] = docs.map((doc: any) => ({
-            id: doc.document_id || doc.id,
-            name: doc.tipo || 'Documento',
-            date: doc.data_emissao ? new Date(doc.data_emissao).toLocaleDateString('pt-BR') : '',
-            laboratory: 'Dr. ao Vivo',
-            category: doc.tipo || 'Geral',
-            url: doc.url_pdf || '#'
-          }));
-          setExams(mappedExams);
-        }
-      } catch (err) {
-        console.error('Erro ao buscar dados do paciente:', err);
-      } finally {
+        // 2. Dados reais do paciente (historico + documentos)
+        (async () => {
+          if (!user.cpf) return;
+          try {
+            const [historico, docsResult] = await Promise.allSettled([
+              buscarHistoricoPaciente(user.cpf),
+              supabase
+                .from('medical_documents')
+                .select('*')
+                .eq('person_id', user.id)
+                .order('data_emissao', { ascending: false }),
+            ]);
+
+            if (cancelled) return;
+
+            if (historico.status === 'fulfilled') {
+              setConsultas(historico.value.consultas);
+              setProtocolos(historico.value.protocolos);
+            }
+
+            if (docsResult.status === 'fulfilled') {
+              const docs = docsResult.value.data;
+              if (docs && docs.length > 0) {
+                const mappedExams: UserExam[] = docs.map((doc: any) => ({
+                  id: doc.document_id || doc.id,
+                  name: doc.tipo || 'Documento',
+                  date: doc.data_emissao ? new Date(doc.data_emissao).toLocaleDateString('pt-BR') : '',
+                  laboratory: 'Dr. ao Vivo',
+                  category: doc.tipo || 'Geral',
+                  url: doc.url_pdf || '#'
+                }));
+                setExams(mappedExams);
+              }
+            }
+          } catch (err) {
+            console.error('Erro ao buscar dados do paciente:', err);
+          }
+        })(),
+      ]);
+
+      if (!cancelled) {
+        setSectionConfigLoaded(true);
         setLoadingData(false);
       }
     };
 
-    if (user.cpf) {
-      fetchPatientData();
-    } else {
-      setLoadingData(false);
-    }
+    initialize();
+    return () => { cancelled = true; };
   }, [user.cpf, user.id]);
 
-  // Fetch config de modulos visiveis
-  useEffect(() => {
-    const fetchSectionConfig = async () => {
-      try {
-        const { data } = await supabase
-          .from('system_settings')
-          .select('value')
-          .eq('key', 'patient_sections')
-          .maybeSingle();
-        if (data?.value) {
-          setSectionConfig({ ...DEFAULT_PATIENT_SECTIONS, ...data.value });
-        }
-      } catch (err) {
-        console.error('Erro ao buscar config de secoes:', err);
-      } finally {
-        setSectionConfigLoaded(true);
-      }
-    };
-    fetchSectionConfig();
-  }, []);
-
-  // Pre-fetch PSO em background (gera link de teleconsulta ao fazer login)
-  const PSO_REFRESH_MS = 8 * 60 * 1000; // Refresh a cada 8 minutos
-  const PSO_TTL_MS = 10 * 60 * 1000;    // Cache valido por 10 minutos
-
-  const fetchPSOInBackground = useCallback(async () => {
-    try {
-      const result = await obterLinkPSO();
-      if (result.success && result.url) {
-        setPrefetchedPSO({ url: result.url, personId: result.personId, fetchedAt: Date.now() });
-      }
-    } catch {
-      // Falha silenciosa - nunca bloqueia a UI
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchPSOInBackground();
-    psoRefreshRef.current = setInterval(fetchPSOInBackground, PSO_REFRESH_MS);
-    return () => { if (psoRefreshRef.current) clearInterval(psoRefreshRef.current); };
-  }, [fetchPSOInBackground]);
+  // PSO pre-fetch agora e gerenciado pelo PSOCacheContext (30min TTL, refresh a cada 25min)
 
   // Extrair ultima prescricao das consultas
   const lastPrescription: string[] = (() => {
@@ -196,9 +187,9 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
     setConsultationActive(false);
     setConsultationUrl(null);
     // Invalida cache e pre-carrega novo PSO para proxima consulta
-    setPrefetchedPSO(null);
-    setTimeout(() => fetchPSOInBackground(), 2000);
-  }, [fetchPSOInBackground]);
+    invalidatePSO();
+    setTimeout(() => refreshPSO(), 2000);
+  }, [invalidatePSO, refreshPSO]);
 
   const handleConsultationExit = useCallback(() => {
     setConsultationActive(false);
@@ -211,19 +202,26 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
     return sectionConfig[key as keyof PatientSectionsConfig] !== false;
   };
 
-  // PSO pre-fetched valido (dentro do TTL)
-  const validPrefetchedPSO = prefetchedPSO && (Date.now() - prefetchedPSO.fetchedAt < PSO_TTL_MS)
-    ? { url: prefetchedPSO.url, personId: prefetchedPSO.personId }
+  // PSO pre-fetched valido (dentro do TTL — gerenciado pelo PSOCacheContext)
+  const validPrefetchedPSO = psoIsValid && psoCache
+    ? { url: psoCache.url, personId: psoCache.personId }
     : null;
 
-  const renderContent = () => {
-    // Guard: redireciona para home se secao desabilitada
+  // Guard: redireciona para home se secao desabilitada.
+  // Movido para useEffect para evitar setState durante render (causa re-render sincrono + flash)
+  useEffect(() => {
     if (!ALWAYS_VISIBLE.includes(activeTab) && !isSectionEnabled(activeTab)) {
       setActiveTab('home');
-      return null;
     }
+  }, [activeTab, sectionConfig]);
 
-    switch (activeTab) {
+  const renderContent = () => {
+    // Se a tab ativa esta desabilitada, renderiza home enquanto o useEffect redireciona
+    const effectiveTab = (!ALWAYS_VISIBLE.includes(activeTab) && !isSectionEnabled(activeTab))
+      ? 'home'
+      : activeTab;
+
+    switch (effectiveTab) {
       case 'home':
         return (
           <StartScreen
@@ -271,9 +269,18 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
   // Mostra banner flutuante quando consulta ativa e usuario esta em outra aba
   const showConsultationBanner = consultationActive && activeTab !== 'consultation';
 
+  // Gate anti-flicker: aguarda config + dados iniciais antes de renderizar
+  // Sem este gate, o usuario veria cards de secoes aparecendo/sumindo conforme
+  // o sectionConfig carrega e aplica as regras de visibilidade
   if (!sectionConfigLoaded) return (
-    <div className="flex-1 flex items-center justify-center py-20">
-      <Loader2 className="animate-spin text-blue-600" size={32} />
+    <div className="flex-1 flex flex-col items-center justify-center py-20 bg-slate-50 min-h-[60vh]">
+      <div className="animate-pulse flex flex-col items-center">
+        <div className="flex flex-col -space-y-1.5 mb-6">
+          <span className="text-3xl font-black tracking-tighter leading-none text-blue-600">vivemus</span>
+          <span className="text-[8px] font-bold uppercase tracking-[0.3em] pl-1 text-emerald-500">clinica digital</span>
+        </div>
+      </div>
+      <Loader2 className="animate-spin text-blue-400" size={24} />
     </div>
   );
 

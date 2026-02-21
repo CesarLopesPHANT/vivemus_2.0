@@ -41,9 +41,14 @@ public class PipModule extends ReactContextBaseJavaModule {
     public void setTeleconsultaAtiva(boolean ativa) {
         MainActivity.teleconsultaAtiva = ativa;
 
+        Activity activity = getCurrentActivity();
+        if (activity instanceof MainActivity) {
+            // Mantem tela ligada durante teleconsulta (evita auto-lock)
+            ((MainActivity) activity).setKeepScreenOn(ativa);
+        }
+
         // Configura auto-enter PiP no Android 12+ enquanto teleconsulta ativa
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Activity activity = getCurrentActivity();
             if (activity != null) {
                 PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder();
                 builder.setAspectRatio(new Rational(16, 9));

@@ -1,11 +1,20 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { getCachedPSO } from '../lib/psoCache';
 
 interface HomeScreenProps {
   navigation: any;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const handleStartTeleconsulta = useCallback(() => {
+    const cached = getCachedPSO();
+    navigation.navigate('Teleconsulta', {
+      url: cached?.url ?? undefined,
+      personId: cached?.personId ?? undefined,
+    });
+  }, [navigation]);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.greeting}>Ola! Bem-vindo ao Vivemus</Text>
@@ -14,7 +23,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.8}
-        onPress={() => navigation.navigate('Teleconsulta')}
+        onPress={handleStartTeleconsulta}
       >
         <Text style={styles.cardTitle}>Iniciar Teleconsulta</Text>
         <Text style={styles.cardDescription}>Consulte um medico agora por video</Text>

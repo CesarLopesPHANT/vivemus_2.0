@@ -39,7 +39,8 @@ const HEALTH_TIPS = [
 ];
 
 const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, onCallStart, onCallEnd, prefetchedPSO }) => {
-  const [stage, setStage] = useState<'consent' | 'connecting' | 'call' | 'blocked' | 'summary'>(activeUrl ? 'call' : 'consent');
+  // 'initializing' evita renderizar qualquer UI ate a verificacao de auth/consent concluir
+  const [stage, setStage] = useState<'initializing' | 'consent' | 'connecting' | 'call' | 'blocked' | 'summary'>(activeUrl ? 'call' : 'initializing');
   const [consentUserId, setConsentUserId] = useState<string | null>(null);
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
@@ -112,12 +113,26 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
         } else if (result.error?.includes("Plano inativo")) {
           setStage('blocked');
         } else {
-          throw new Error(result.error || "Provedor indisponivel no momento.");
+          // PSO falhou - usar URL de fallback (login manual DAV)
+          console.warn("PSO falhou, redirecionando para login manual DAV:", result.error);
+          const fallbackUrl = "https://vivemus.dav.med.br/emergency/person/";
+          setRoomUrl(fallbackUrl);
+          setStage('call');
+          onCallStart?.(fallbackUrl);
+          trackApiAction({
+            userId: userData?.id || 'unknown', userName: userData?.email || 'Paciente',
+            actionType: 'PSO_FALLBACK_MANUAL_LOGIN', provider: 'DrAoVivo',
+            payload: { error: result.error, code: result.code, fallbackUrl },
+            status: 'ALERT'
+          }).catch(() => {});
         }
       } catch (err: any) {
         console.error("Erro PSO apos consent:", err);
-        alert("Falha no Gateway: " + err.message);
-        onExit?.();
+        // Fallback para login manual em vez de bloquear o usuario
+        const fallbackUrl = "https://vivemus.dav.med.br/emergency/person/";
+        setRoomUrl(fallbackUrl);
+        setStage('call');
+        onCallStart?.(fallbackUrl);
       }
     };
     startPSO();
@@ -181,13 +196,29 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
         } else if (result.error?.includes("Plano inativo")) {
           setStage('blocked');
         } else {
-          throw new Error(result.error || "Provedor indisponivel no momento.");
+          // PSO falhou - usar fallback (login manual DAV)
+          if (!cancelled) {
+            console.warn("PSO falhou, redirecionando para login manual DAV:", result.error);
+            const fallbackUrl = "https://vivemus.dav.med.br/emergency/person/";
+            setRoomUrl(fallbackUrl);
+            setStage('call');
+            onCallStart?.(fallbackUrl);
+            trackApiAction({
+              userId: user.id, userName: user.email || 'Paciente',
+              actionType: 'PSO_FALLBACK_MANUAL_LOGIN', provider: 'DrAoVivo',
+              payload: { error: result.error, fallbackUrl },
+              status: 'ALERT'
+            }).catch(() => {});
+          }
         }
       } catch (err: any) {
         if (!cancelled) {
           console.error("Erro PSO:", err);
-          alert("Falha no Gateway: " + err.message);
-          onExit?.();
+          // Fallback para login manual em vez de bloquear o usuario
+          const fallbackUrl = "https://vivemus.dav.med.br/emergency/person/";
+          setRoomUrl(fallbackUrl);
+          setStage('call');
+          onCallStart?.(fallbackUrl);
         }
       }
     };
@@ -365,6 +396,20 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
               Baixar todos os documentos
             </button>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // ===== RENDER: Initializing (aguarda verificacao de auth/consent) =====
+  if (stage === 'initializing') {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center px-6">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-200 mb-6">
+            <Loader2 size={28} className="text-white animate-spin" />
+          </div>
+          <p className="text-slate-300 text-[10px] font-black uppercase tracking-widest">Preparando teleconsulta...</p>
         </div>
       </div>
     );

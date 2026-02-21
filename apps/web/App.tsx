@@ -40,6 +40,7 @@ import AdminPanel from './components/AdminPanel';
 import PasswordChangeModal from './components/PasswordChangeModal';
 import CompanyDashboard from './components/CompanyDashboard';
 import MobilePatientApp from './components/MobilePatientApp';
+import { PSOCacheProvider } from './context/PSOCacheContext';
 import { HealthProfile, Partner } from './types';
 import { isInBulkImportMode } from './services/importService';
 
@@ -103,6 +104,8 @@ const App: React.FC = () => {
   const [authStage, setAuthStage] = useState<LoginView>('login');
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
+  // Gate anti-flicker: branding carregado antes de exibir qualquer UI
+  const [brandReady, setBrandReady] = useState(false);
 
   // Sempre iniciar na tela de login - limpa hash da URL
   useEffect(() => {
@@ -118,7 +121,7 @@ const App: React.FC = () => {
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [needsKey, setNeedsKey] = useState(false);
-  
+
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
@@ -156,6 +159,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Carrega branding em paralelo com auth — sinaliza brandReady ao concluir
   useEffect(() => {
     const fetchGlobalBranding = async () => {
       try {
@@ -164,19 +168,23 @@ const App: React.FC = () => {
           .select('value')
           .eq('key', 'branding')
           .maybeSingle();
-        
+
         if (!error && data?.value) {
           setBrandSettings(data.value);
           localStorage.setItem('vivemus_brand', JSON.stringify(data.value));
         }
       } catch (err) {}
+      setBrandReady(true);
     };
     fetchGlobalBranding();
   }, []);
 
-  const fetchUserProfile = useCallback(async (userId: string) => {
+  const fetchUserProfile = useCallback(async (userId: string, isInitialLoad = false) => {
     try {
-      setLoading(true);
+      // Apenas mostra loading screen completo no carregamento inicial.
+      // Em refreshes subsequentes (auth state change, profile update),
+      // nao volta pro loading screen — evita flicker da UI inteira.
+      if (isInitialLoad) setLoading(true);
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
@@ -260,7 +268,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) await fetchUserProfile(session.user.id);
+      if (session) await fetchUserProfile(session.user.id, true); // isInitialLoad=true
       else setLoading(false);
     };
     init();
@@ -275,7 +283,7 @@ const App: React.FC = () => {
       }
 
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
-        fetchUserProfile(session.user.id);
+        fetchUserProfile(session.user.id, false); // Nao mostra loading screen
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setCurrentUser(null);
@@ -313,10 +321,18 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading) return (
+  // Gate anti-flicker: aguarda auth + branding antes de exibir qualquer UI.
+  // Sem este gate, o usuario veria a tela de login com cores padrao por ~200ms
+  // antes do branding do parceiro ser aplicado (FOUC).
+  if (loading || !brandReady) return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center">
-      <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
-      <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Vivemus Gate: Autenticando...</p>
+      <div className="animate-pulse flex flex-col items-center">
+        <div className="flex flex-col -space-y-1.5 mb-8">
+          <span className="text-5xl font-black tracking-tighter leading-none" style={{ color: brandSettings.primaryColor }}>vivemus</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.3em] pl-1" style={{ color: brandSettings.accentColor }}>clinica digital</span>
+        </div>
+      </div>
+      <p className="text-slate-300 font-black uppercase tracking-widest text-[10px]">Carregando...</p>
     </div>
   );
 
@@ -442,11 +458,13 @@ const App: React.FC = () => {
         <div className="h-14" />
 
         {/* Mobile Patient App */}
-        <MobilePatientApp
-          user={currentUser}
-          partners={partners}
-          onUpdateProfile={() => fetchUserProfile(currentUser.id)}
-        />
+        <PSOCacheProvider>
+          <MobilePatientApp
+            user={currentUser}
+            partners={partners}
+            onUpdateProfile={() => fetchUserProfile(currentUser.id)}
+          />
+        </PSOCacheProvider>
 
         {showLogoutModal && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">

@@ -25,6 +25,19 @@ public class MainActivity extends ReactActivity {
     }
 
     @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // Para API < 27, define flags programaticamente
+        // (atributos XML showWhenLocked/turnScreenOn so funcionam em API 27+)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) {
+            getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            );
+        }
+    }
+
+    @Override
     protected ReactActivityDelegate createReactActivityDelegate() {
         return new DefaultReactActivityDelegate(
             this,
@@ -44,6 +57,20 @@ public class MainActivity extends ReactActivity {
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
             } else {
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
+        });
+    }
+
+    /**
+     * Mantem a tela ligada durante teleconsulta para evitar auto-lock.
+     * Chamado pelo PipModule.setTeleconsultaAtiva().
+     */
+    void setKeepScreenOn(boolean keepOn) {
+        runOnUiThread(() -> {
+            if (keepOn) {
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            } else {
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             }
         });
     }

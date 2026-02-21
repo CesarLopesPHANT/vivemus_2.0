@@ -366,6 +366,8 @@ const cadastrarOuAtualizarPaciente = async (
 /**
  * FASE 3: Gerar PSO (Programmatic Single Sign-On) para acesso direto
  *
+ * Endpoint: POST /credential/pso/person/{personId}
+ *
  * Tratamento de Erros:
  * - 404: person_id inexistente → dispara cadastro (POST /person) e retenta PSO
  *
@@ -375,7 +377,7 @@ const cadastrarOuAtualizarPaciente = async (
 const gerarPSO = async (personId: string, dadosCadastro?: PersonPayload): Promise<string> => {
   try {
     const pso = await consultarAPI<PSOResponse>(`/credential/pso/person/${personId}`, 'POST');
-    return `${PORTAL_URL}/pso/${pso.id}`;
+    return `${PORTAL_URL}/pso/${pso.id}/emergency`;
   } catch (error: any) {
     // Recovery 404: person_id nao encontrado → cadastra e retenta
     if (error instanceof DrAoVivoAPIError && error.statusCode === 404 && dadosCadastro) {
@@ -393,7 +395,7 @@ const gerarPSO = async (personId: string, dadosCadastro?: PersonPayload): Promis
       });
 
       const pso = await consultarAPI<PSOResponse>(`/credential/pso/person/${novaPessoa.id}`, 'POST');
-      return `${PORTAL_URL}/pso/${pso.id}`;
+      return `${PORTAL_URL}/pso/${pso.id}/emergency`;
     }
 
     throw error;
@@ -1229,9 +1231,10 @@ export const abrirAgendaEspecialistas = async (
     const psoUrl = await gerarPSO(personId);
 
     // Adiciona parâmetro de especialidade se fornecido
+    const separator = psoUrl.includes('?') ? '&' : '?';
     const urlFinal = especialidade
-      ? `${psoUrl}&redirect=agenda&especialidade=${encodeURIComponent(especialidade)}`
-      : `${psoUrl}&redirect=agenda`;
+      ? `${psoUrl}${separator}redirect=agenda&especialidade=${encodeURIComponent(especialidade)}`
+      : `${psoUrl}${separator}redirect=agenda`;
 
     await trackApiAction({
       userId: personId,
@@ -2008,7 +2011,7 @@ export const buscarDocumentosRecentes = async (
  * 1. Envia JWT do usuario autenticado para Edge Function pso-proxy
  * 2. Edge Function valida auth, verifica plan_status, cadastra na DAV se necessario
  * 3. Gera PSO via POST /credential/pso/person/{person_id}
- * 4. Retorna URL https://vivemus.dav.med.br/pso/{id_pso}
+ * 4. Retorna URL https://vivemus.dav.med.br/pso/{id_pso}/emergency
  *
  * @returns IntegrationResult com url do PSO ou erro
  */
