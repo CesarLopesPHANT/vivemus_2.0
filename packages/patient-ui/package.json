@@ -1,0 +1,20 @@
+{
+  "name": "@vivemus/patient-ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./components/*": "./components/*.tsx"
+  },
+  "dependencies": {
+    "@vivemus/shared": "*",
+    "lucide-react": "^0.562.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  }
+}

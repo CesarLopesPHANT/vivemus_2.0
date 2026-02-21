@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Vivemus - Telemedicina</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Roboto', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* Ajuste fino para garantir que Tailwind use a fonte definida no body */
+      .font-sans {
+        font-family: 'Roboto', sans-serif !important;
+      }
+
+      /* Mobile App Styles */
+
+      /* Safe Area para iPhones com notch */
+      .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      .safe-area-top {
+        padding-top: env(safe-area-inset-top, 0px);
+      }
+
+      /* Hide scrollbar mas mantém funcionalidade */
+      .no-scrollbar::-webkit-scrollbar,
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+
+      .no-scrollbar,
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      /* Touch action para melhor scroll em mobile */
+      .touch-pan-x {
+        touch-action: pan-x;
+      }
+
+      .touch-pan-y {
+        touch-action: pan-y;
+      }
+
+      /* Active states mais responsivos em mobile */
+      @media (hover: none) {
+        button:active,
+        a:active {
+          opacity: 0.8;
+        }
+      }
+
+      /* Prevent pull-to-refresh em mobile quando não desejado */
+      html {
+        overscroll-behavior-y: contain;
+      }
+
+      /* Animações suaves */
+      @keyframes slideInFromBottom {
+        from {
+          transform: translateY(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .animate-slide-up {
+        animation: slideInFromBottom 0.3s ease-out;
+      }
+
+      /* Focus states mobile-friendly */
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+      }
+
+      /* Line clamp utility */
+      .line-clamp-1 {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+      }
+
+      .line-clamp-2 {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+    </style>
+</head>
+  <body class="bg-slate-50 text-slate-900 overflow-x-hidden font-sans">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

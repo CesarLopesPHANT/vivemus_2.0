@@ -1,79 +1,20 @@
-# Vivemus 2.0
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-Plataforma de saúde digital com teleconsulta, IA e gestão de beneficiários.
+# Run and deploy your AI Studio app
 
-## Estrutura
+This contains everything you need to run your app locally.
 
-```
-vivemus_2.0/
-├── backend/          # Supabase Edge Functions + SQL migrations
-├── frontend-web/     # React + Vite (painel web)
-├── mobile-app/       # React Native (Android + iOS)
-└── shared/           # @vivemus/shared — tipos, serviços, lib
-```
+View your app in AI Studio: https://ai.studio/apps/drive/1RBDoqDQLOVXoeD-ONXahB4cBqqhjkVYm
 
-## Pré-requisitos
+## Run Locally
 
-- Node.js 18+
-- npm 9+
-- Supabase CLI (`npm i -g supabase`)
-- React Native CLI + Android Studio / Xcode (para mobile)
+**Prerequisites:**  Node.js
 
-## Setup Local
 
-```bash
-# 1. Clonar
-git clone git@github.com:SEU_USER/vivemus_2.0.git
-cd vivemus_2.0
-
-# 2. Instalar dependências (workspaces)
-npm install
-
-# 3. Configurar variáveis de ambiente
-cp .env.example .env
-# Editar .env com suas chaves reais
-
-# 4. Dev web
-npm run dev:web
-
-# 5. Dev mobile
-npm run dev:mobile
-```
-
-## Variáveis de Ambiente
-
-| Variável | Onde configurar | Descrição |
-|----------|----------------|-----------|
-| `VITE_SUPABASE_URL` | `.env` | URL do projeto Supabase |
-| `VITE_SUPABASE_ANON_KEY` | `.env` | Chave anônima do Supabase |
-| `GEMINI_API_KEY` | `.env` | Chave da API Google Gemini |
-| `SUPABASE_ACCESS_TOKEN` | GitHub Secrets | Token de acesso Supabase (CI/CD) |
-| `SUPABASE_PROJECT_ID` | GitHub Secrets | ID do projeto Supabase (CI/CD) |
-| `DAV_API_KEY` | GitHub Secrets | Chave da API Doutor ao Vivo |
-| `SUPABASE_SERVICE_ROLE_KEY` | GitHub Secrets | Service role key (NUNCA no .env local) |
-
-## Scripts
-
-| Comando | Descrição |
-|---------|-----------|
-| `npm run dev:web` | Inicia frontend web (Vite dev server) |
-| `npm run dev:mobile` | Inicia app mobile (Metro bundler) |
-| `npm run build:web` | Build de produção do frontend web |
-| `npm run deploy:functions` | Deploy das Edge Functions ao Supabase |
-
-## Deploy
-
-### Edge Functions (automático)
-Push para `main` em `backend/functions/**` dispara deploy automático via GitHub Actions.
-
-### Frontend Web
-Push para `main` em `frontend-web/**` dispara build e deploy automático.
-
-### Configurar GitHub Secrets
-
-1. Vá em **Settings > Secrets and variables > Actions**
-2. Adicione:
-   - `SUPABASE_ACCESS_TOKEN`
-   - `SUPABASE_PROJECT_ID`
-   - `DAV_API_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

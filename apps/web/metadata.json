@@ -1,0 +1,8 @@
+{
+  "name": "Vivemus - Clinica Digital",
+  "description": "Uma plataforma completa de telemedicina para agendamentos, consultas por vídeo e gestão de prontuários, integrada com inteligência artificial para triagem de sintomas.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
