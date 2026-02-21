@@ -5,7 +5,8 @@ import {
   Bot,
   Heart,
   User,
-  Phone
+  Phone,
+  Loader2
 } from 'lucide-react';
 import { UserData, View } from '../App';
 import { Partner, UserExam } from '../types';
@@ -57,6 +58,7 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
 
   // Config de modulos visiveis para o paciente
   const [sectionConfig, setSectionConfig] = useState<PatientSectionsConfig>(DEFAULT_PATIENT_SECTIONS);
+  const [sectionConfigLoaded, setSectionConfigLoaded] = useState(false);
 
   // Fetch dados reais ao montar
   useEffect(() => {
@@ -114,6 +116,8 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
         }
       } catch (err) {
         console.error('Erro ao buscar config de secoes:', err);
+      } finally {
+        setSectionConfigLoaded(true);
       }
     };
     fetchSectionConfig();
@@ -266,6 +270,12 @@ const MobilePatientApp: React.FC<MobilePatientAppProps> = ({ user, partners, onU
 
   // Mostra banner flutuante quando consulta ativa e usuario esta em outra aba
   const showConsultationBanner = consultationActive && activeTab !== 'consultation';
+
+  if (!sectionConfigLoaded) return (
+    <div className="flex-1 flex items-center justify-center py-20">
+      <Loader2 className="animate-spin text-blue-600" size={32} />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">

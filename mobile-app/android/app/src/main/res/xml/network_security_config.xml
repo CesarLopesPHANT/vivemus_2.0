@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Bloqueia cleartext (HTTP) globalmente -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Dominios permitidos para a WebView de telemedicina -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.v2.doutoraovivo.com.br</domain>
+        <domain includeSubdomains="true">doutoraovivo.com.br</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

@@ -131,6 +131,7 @@ const App: React.FC = () => {
       accentColor: '#00D1B2'
     };
   });
+  const [brandLoaded, setBrandLoaded] = useState(() => !!localStorage.getItem('vivemus_brand'));
 
   const masterEmails = ['master@vivemus.com.br', 'cesarlopes@agenciaphant.com.br', 'thiago.hoppen@gmail.com'];
 
@@ -164,12 +165,15 @@ const App: React.FC = () => {
           .select('value')
           .eq('key', 'branding')
           .maybeSingle();
-        
+
         if (!error && data?.value) {
           setBrandSettings(data.value);
           localStorage.setItem('vivemus_brand', JSON.stringify(data.value));
         }
-      } catch (err) {}
+      } catch (err) {
+      } finally {
+        setBrandLoaded(true);
+      }
     };
     fetchGlobalBranding();
   }, []);
@@ -313,7 +317,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading) return (
+  if (loading || !brandLoaded) return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center">
       <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
       <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Vivemus Gate: Autenticando...</p>
