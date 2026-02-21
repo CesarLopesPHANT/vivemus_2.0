@@ -5,6 +5,7 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Rational;
+import android.view.WindowManager;
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
@@ -30,6 +31,21 @@ public class MainActivity extends ReactActivity {
             getMainComponentName(),
             DefaultNewArchitectureEntryPoint.getFabricEnabled()
         );
+    }
+
+    /**
+     * Ativa ou desativa FLAG_SECURE para prevenir capturas de tela
+     * durante teleconsultas e visualizacao de prontuarios.
+     * Chamado pelo PipModule via bridge React Native.
+     */
+    void setScreenSecure(boolean secure) {
+        runOnUiThread(() -> {
+            if (secure) {
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            } else {
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
+        });
     }
 
     /**

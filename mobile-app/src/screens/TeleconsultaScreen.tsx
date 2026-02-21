@@ -55,6 +55,9 @@ const TeleconsultaScreen: React.FC<TeleconsultaScreenProps> = ({ route, navigati
       // Sinaliza para o nativo que a teleconsulta esta ativa (auto-PiP ao minimizar)
       PipModule?.setTeleconsultaAtiva(true);
 
+      // Previne capturas de tela durante a teleconsulta (compliance LGPD/CFM)
+      PipModule?.setScreenSecure(true);
+
       // Inicia Foreground Service para manter conexao WebRTC em segundo plano
       TeleconsultaServiceModule?.iniciar().catch(() => {
         // Service pode falhar em alguns devices - teleconsulta continua funcionando
@@ -63,8 +66,9 @@ const TeleconsultaScreen: React.FC<TeleconsultaScreenProps> = ({ route, navigati
 
     return () => {
       if (Platform.OS === 'android') {
-        // Desativa auto-PiP e para o Foreground Service ao sair da tela
+        // Desativa auto-PiP, FLAG_SECURE e para o Foreground Service ao sair da tela
         PipModule?.setTeleconsultaAtiva(false);
+        PipModule?.setScreenSecure(false);
         TeleconsultaServiceModule?.parar().catch(() => {});
       }
     };

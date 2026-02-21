@@ -11,6 +11,7 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.v2.doutoraovivo.com.br</domain>
         <domain includeSubdomains="true">doutoraovivo.com.br</domain>
+        <domain includeSubdomains="true">vivemus.dav.med.br</domain>
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

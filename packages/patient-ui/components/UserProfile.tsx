@@ -1,19 +1,21 @@
 
 import React, { useState } from 'react';
-import { 
-  User, 
-  Mail, 
-  CreditCard, 
-  ShieldCheck, 
-  Users, 
-  Plus, 
-  Lock, 
-  ArrowRight, 
-  CheckCircle2, 
+import {
+  User,
+  Mail,
+  CreditCard,
+  ShieldCheck,
+  Users,
+  Plus,
+  Lock,
+  ArrowRight,
+  CheckCircle2,
   Building2,
   AlertCircle,
   Loader2,
-  BadgeCheck
+  BadgeCheck,
+  Trash2,
+  XCircle
 } from 'lucide-react';
 import { UserData } from '../../shared/types';
 
@@ -26,6 +28,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate }) => {
   const [showAddDependent, setShowAddDependent] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success'>('idle');
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   
   const [dependents, setDependents] = useState([
     { name: 'Maria Oliveira', relation: 'Cônjuge', active: true },
@@ -242,6 +248,26 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate }) => {
         </div>
       </div>
 
+      {/* Zona de Perigo — Exclusao de Conta (LGPD Art. 18) */}
+      <section className="bg-white p-10 rounded-[2.5rem] border border-red-100 shadow-sm animate-in slide-in-from-bottom duration-700">
+        <h3 className="text-2xl font-bold text-red-600 mb-4 flex items-center gap-3">
+          <AlertCircle size={24} className="text-red-500" />
+          Zona de Perigo
+        </h3>
+        <p className="text-slate-500 text-sm leading-relaxed mb-6">
+          Ao excluir sua conta, seus dados pessoais serao permanentemente removidos. Conforme a
+          <strong> Resolucao CFM 1.821/2007</strong>, seus prontuarios medicos serao anonimizados e retidos por
+          <strong> 20 anos</strong> para fins legais, sem qualquer vinculo com sua identidade.
+        </p>
+        <button
+          onClick={() => { setShowDeleteAccount(true); setDeleteConfirmText(''); setDeleteError(null); }}
+          className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white active:scale-95 transition-all text-sm border border-red-200"
+        >
+          <Trash2 size={18} />
+          Excluir minha conta e dados
+        </button>
+      </section>
+
       {/* MODAL DE ADIÇÃO (ASAAS) */}
       {showAddDependent && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -287,6 +313,96 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate }) => {
                  </p>
               </div>
            </div>
+        </div>
+      )}
+      {/* MODAL DE EXCLUSAO DE CONTA (LGPD) */}
+      {showDeleteAccount && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-10 text-center">
+              <div className="w-20 h-20 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                <XCircle size={40} />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800">Excluir Conta</h3>
+              <p className="text-slate-500 text-sm mt-2 mb-4 px-4">
+                Esta acao e <strong>irreversivel</strong>. Todos os seus dados pessoais serao removidos.
+              </p>
+
+              <div className="bg-amber-50 p-4 rounded-2xl mb-6 text-left border border-amber-100">
+                <div className="flex gap-3">
+                  <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                  <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                    <strong>Retencao Legal:</strong> Seus prontuarios medicos serao anonimizados e retidos
+                    por 20 anos conforme Resolucao CFM 1.821/2007. Nenhum dado identificavel permanecera vinculado.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-left mb-6">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">
+                  Digite EXCLUIR para confirmar
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={e => setDeleteConfirmText(e.target.value)}
+                  placeholder="EXCLUIR"
+                  className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 outline-none focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all font-mono text-center text-lg tracking-widest"
+                />
+              </div>
+
+              {deleteError && (
+                <div className="bg-red-50 p-3 rounded-xl mb-4 text-red-600 text-xs font-medium border border-red-100">
+                  {deleteError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <button
+                  disabled={deleteConfirmText !== 'EXCLUIR' || isDeleting}
+                  onClick={async () => {
+                    setIsDeleting(true);
+                    setDeleteError(null);
+                    try {
+                      const res = await fetch('/api/delete-account', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        window.location.href = '/';
+                      } else {
+                        setDeleteError(data.error || 'Erro ao excluir conta. Tente novamente.');
+                      }
+                    } catch {
+                      setDeleteError('Erro de conexao. Verifique sua internet e tente novamente.');
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-100 hover:bg-red-700 active:scale-95 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {isDeleting ? <Loader2 size={20} className="animate-spin" /> : (
+                    <>
+                      <Trash2 size={20} />
+                      Excluir Permanentemente
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowDeleteAccount(false)}
+                  className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-all active:scale-90"
+                >
+                  Cancelar
+                </button>
+              </div>
+
+              <p className="text-[10px] text-slate-400 mt-8 uppercase font-bold tracking-widest flex items-center justify-center gap-1.5 opacity-60">
+                <ShieldCheck size={14} />
+                Protegido pela LGPD
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

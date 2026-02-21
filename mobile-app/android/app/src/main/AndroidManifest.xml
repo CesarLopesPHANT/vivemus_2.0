@@ -13,6 +13,7 @@
     <!-- Foreground Service para manter a teleconsulta ativa em segundo plano -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Features opcionais (nao bloqueia instalacao em devices sem camera) -->

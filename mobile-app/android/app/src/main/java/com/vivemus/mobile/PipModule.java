@@ -83,6 +83,18 @@ public class PipModule extends ReactContextBaseJavaModule {
     }
 
     /**
+     * Ativa/desativa FLAG_SECURE para prevenir capturas de tela
+     * durante teleconsultas e visualizacao de prontuarios.
+     */
+    @ReactMethod
+    public void setScreenSecure(boolean secure) {
+        Activity activity = getCurrentActivity();
+        if (activity instanceof MainActivity) {
+            ((MainActivity) activity).setScreenSecure(secure);
+        }
+    }
+
+    /**
      * Verifica se o dispositivo suporta PiP.
      */
     @ReactMethod
