@@ -40,7 +40,8 @@ const HEALTH_TIPS = [
 
 const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, onCallStart, onCallEnd, prefetchedPSO }) => {
   // 'initializing' evita renderizar qualquer UI ate a verificacao de auth/consent concluir
-  const [stage, setStage] = useState<'initializing' | 'consent' | 'connecting' | 'call' | 'blocked' | 'summary'>(activeUrl ? 'call' : 'initializing');
+  const [stage, setStage] = useState<'initializing' | 'consent' | 'connecting' | 'call' | 'blocked' | 'summary' | 'error'>(activeUrl ? 'call' : 'initializing');
+  const [psoError, setPsoError] = useState<string | null>(null);
   const [consentUserId, setConsentUserId] = useState<string | null>(null);
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
@@ -98,7 +99,14 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
     setStage('connecting');
     const startPSO = async () => {
       try {
-        const result = await obterLinkPSO();
+        let result = await obterLinkPSO();
+
+        // Se falhou (exceto plano inativo), retry uma vez apos 2s
+        if (!result.success && !result.error?.includes("Plano inativo")) {
+          await new Promise(r => setTimeout(r, 2000));
+          result = await obterLinkPSO();
+        }
+
         if (result.success && result.url) {
           if (result.personId) setPersonId(result.personId);
           setRoomUrl(result.url);
@@ -113,26 +121,20 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
         } else if (result.error?.includes("Plano inativo")) {
           setStage('blocked');
         } else {
-          // PSO falhou - usar URL de fallback (login manual DAV)
-          console.warn("PSO falhou, redirecionando para login manual DAV:", result.error);
-          const fallbackUrl = "https://vivemus.dav.med.br/emergency/person/";
-          setRoomUrl(fallbackUrl);
-          setStage('call');
-          onCallStart?.(fallbackUrl);
+          console.warn("PSO falhou apos retry:", result.error);
+          setPsoError(result.error || 'Erro ao conectar ao pronto atendimento.');
+          setStage('error');
           trackApiAction({
             userId: userData?.id || 'unknown', userName: userData?.email || 'Paciente',
-            actionType: 'PSO_FALLBACK_MANUAL_LOGIN', provider: 'DrAoVivo',
-            payload: { error: result.error, code: result.code, fallbackUrl },
-            status: 'ALERT'
+            actionType: 'PSO_FAILED_NO_FALLBACK', provider: 'DrAoVivo',
+            payload: { error: result.error, code: result.code },
+            status: 'ERROR'
           }).catch(() => {});
         }
       } catch (err: any) {
         console.error("Erro PSO apos consent:", err);
-        // Fallback para login manual em vez de bloquear o usuario
-        const fallbackUrl = "https://vivemus.dav.med.br/emergency/person/";
-        setRoomUrl(fallbackUrl);
-        setStage('call');
-        onCallStart?.(fallbackUrl);
+        setPsoError('Erro de conexao. Verifique sua internet e tente novamente.');
+        setStage('error');
       }
     };
     startPSO();
@@ -178,8 +180,16 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
       setStage('connecting');
 
       try {
-        const result = await obterLinkPSO();
+        let result = await obterLinkPSO();
         if (cancelled) return;
+
+        // Se falhou (exceto plano inativo), retry uma vez apos 2s
+        if (!result.success && !result.error?.includes("Plano inativo")) {
+          await new Promise(r => setTimeout(r, 2000));
+          if (cancelled) return;
+          result = await obterLinkPSO();
+          if (cancelled) return;
+        }
 
         if (result.success && result.url) {
           if (result.personId) setPersonId(result.personId);
@@ -196,29 +206,23 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
         } else if (result.error?.includes("Plano inativo")) {
           setStage('blocked');
         } else {
-          // PSO falhou - usar fallback (login manual DAV)
           if (!cancelled) {
-            console.warn("PSO falhou, redirecionando para login manual DAV:", result.error);
-            const fallbackUrl = "https://vivemus.dav.med.br/emergency/person/";
-            setRoomUrl(fallbackUrl);
-            setStage('call');
-            onCallStart?.(fallbackUrl);
+            console.warn("PSO falhou apos retry:", result.error);
+            setPsoError(result.error || 'Erro ao conectar ao pronto atendimento.');
+            setStage('error');
             trackApiAction({
               userId: user.id, userName: user.email || 'Paciente',
-              actionType: 'PSO_FALLBACK_MANUAL_LOGIN', provider: 'DrAoVivo',
-              payload: { error: result.error, fallbackUrl },
-              status: 'ALERT'
+              actionType: 'PSO_FAILED_NO_FALLBACK', provider: 'DrAoVivo',
+              payload: { error: result.error },
+              status: 'ERROR'
             }).catch(() => {});
           }
         }
       } catch (err: any) {
         if (!cancelled) {
           console.error("Erro PSO:", err);
-          // Fallback para login manual em vez de bloquear o usuario
-          const fallbackUrl = "https://vivemus.dav.med.br/emergency/person/";
-          setRoomUrl(fallbackUrl);
-          setStage('call');
-          onCallStart?.(fallbackUrl);
+          setPsoError('Erro de conexao. Verifique sua internet e tente novamente.');
+          setStage('error');
         }
       }
     };
@@ -394,6 +398,40 @@ const Teleconsultation: React.FC<TeleconsultationProps> = ({ onExit, activeUrl, 
             >
               <Download size={18} />
               Baixar todos os documentos
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ===== RENDER: Error (PSO falhou apos retry — sem fallback para login manual) =====
+  if (stage === 'error') {
+    return (
+      <div className="max-w-md mx-auto py-16 px-4 text-center animate-in fade-in duration-500">
+        <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <AlertCircle size={40} />
+        </div>
+        <h1 className="text-2xl font-black text-slate-900 mb-4">Erro ao Conectar</h1>
+        <p className="text-slate-500 mb-8">
+          {psoError || 'Nao foi possivel conectar ao pronto atendimento. Tente novamente em alguns instantes.'}
+        </p>
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              setPsoError(null);
+              proceedAfterConsent();
+            }}
+            className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl active:scale-95"
+          >
+            Tentar Novamente
+          </button>
+          {onExit && (
+            <button
+              onClick={onExit}
+              className="w-full py-3 text-slate-400 font-bold hover:text-slate-600"
+            >
+              Voltar
             </button>
           )}
         </div>

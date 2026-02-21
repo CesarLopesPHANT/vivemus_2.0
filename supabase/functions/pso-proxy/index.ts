@@ -463,76 +463,94 @@ Deno.serve(async (req: Request) => {
         endpoint: `${DAV_BASE_URL}/credential/pso/person/${personId}`,
       });
 
-      // Recovery 404: person_id pode estar obsoleto na DAV - re-buscar/cadastrar e tentar novamente
+      // Recovery 404: pode ser race condition (chamadas paralelas) ou person_id obsoleto
       if (psoStatus === 404) {
         await writeLog(userId, userEmail, "PSO_GENERATE", `PSO 404 para person_id ${personId} - tentando recovery`, "ALERT", {
           step: "5_PSO_RECOVERY_START",
           person_id: personId,
         });
 
-        let recoveredPersonId: string | null = null;
-        try {
-          const retryBusca = await fetch(`${DAV_BASE_URL}/person/cpf/${cleanCPF}`, { headers: davHeaders });
-          if (retryBusca.ok) {
-            const retryData = await retryBusca.json();
-            if (retryData?.id && retryData.id !== personId) {
-              recoveredPersonId = retryData.id;
-            }
-          }
-        } catch {}
+        // Aguardar 1s para evitar race condition com chamadas paralelas na DAV
+        await new Promise(r => setTimeout(r, 1000));
 
-        if (!recoveredPersonId) {
+        // Tentativa 1: retry simples com o mesmo person_id (404 transiente por race condition)
+        let retryPso = await fetch(
+          `${DAV_BASE_URL}/credential/pso/person/${personId}`,
+          { method: "POST", headers: davHeaders }
+        );
+
+        if (retryPso.ok) {
+          psoStatus = retryPso.status;
+          psoResponseBody = await retryPso.text();
+          await writeLog(userId, userEmail, "PSO_GENERATE", `Recovery 404 OK (retry simples) - person_id: ${personId}`, "SUCCESS", {
+            step: "5_PSO_RECOVERY_SIMPLE_RETRY",
+            person_id: personId,
+          });
+        } else {
+          // Tentativa 2: re-buscar/cadastrar na DAV e gerar PSO com novo person_id
+          let recoveredPersonId: string | null = null;
           try {
-            const reCreateRes = await fetch(`${DAV_BASE_URL}/person`, {
-              method: "POST",
-              headers: davHeaders,
-              body: JSON.stringify({
-                name: paciente.nome,
-                cpf: cleanCPF,
-                email: paciente.email,
-                cell_phone: paciente.celular?.replace(/\D/g, ""),
-                birth_date: paciente.birth_date || "",
-                plan_id: paciente.plan_id || "plano_premium",
-                plan_status: "ACTIVE",
-                timezone: paciente.timezone || "America/Cuiaba",
-                tag_id: DAV_TAG_ID,
-              }),
-            });
-            if (reCreateRes.ok) {
-              const reCreateData = await reCreateRes.json();
-              if (reCreateData?.id) recoveredPersonId = reCreateData.id;
-            } else if (reCreateRes.status === 409 || reCreateRes.status === 422) {
-              const retryBusca2 = await fetch(`${DAV_BASE_URL}/person/cpf/${cleanCPF}`, { headers: davHeaders });
-              if (retryBusca2.ok) {
-                const retryData2 = await retryBusca2.json();
-                if (retryData2?.id) recoveredPersonId = retryData2.id;
-              }
+            const retryBusca = await fetch(`${DAV_BASE_URL}/person/cpf/${cleanCPF}`, { headers: davHeaders });
+            if (retryBusca.ok) {
+              const retryData = await retryBusca.json();
+              if (retryData?.id) recoveredPersonId = retryData.id;
             }
           } catch {}
-        }
 
-        if (recoveredPersonId) {
-          await supabase
-            .from("telemedicina_pacientes")
-            .upsert({ user_id: userId, person_id: recoveredPersonId, cpf: cleanCPF }, { onConflict: "user_id" });
+          if (!recoveredPersonId) {
+            try {
+              const reCreateRes = await fetch(`${DAV_BASE_URL}/person`, {
+                method: "POST",
+                headers: davHeaders,
+                body: JSON.stringify({
+                  name: paciente.nome,
+                  cpf: cleanCPF,
+                  email: paciente.email,
+                  cell_phone: paciente.celular?.replace(/\D/g, ""),
+                  birth_date: paciente.birth_date || "",
+                  plan_id: paciente.plan_id || "plano_premium",
+                  plan_status: "ACTIVE",
+                  timezone: paciente.timezone || "America/Cuiaba",
+                  tag_id: DAV_TAG_ID,
+                }),
+              });
+              if (reCreateRes.ok) {
+                const reCreateData = await reCreateRes.json();
+                if (reCreateData?.id) recoveredPersonId = reCreateData.id;
+              } else if (reCreateRes.status === 409 || reCreateRes.status === 422) {
+                const retryBusca2 = await fetch(`${DAV_BASE_URL}/person/cpf/${cleanCPF}`, { headers: davHeaders });
+                if (retryBusca2.ok) {
+                  const retryData2 = await retryBusca2.json();
+                  if (retryData2?.id) recoveredPersonId = retryData2.id;
+                }
+              }
+            } catch {}
+          }
 
-          const retryPso = await fetch(
-            `${DAV_BASE_URL}/credential/pso/person/${recoveredPersonId}`,
-            { method: "POST", headers: davHeaders }
-          );
+          if (recoveredPersonId) {
+            if (recoveredPersonId !== personId) {
+              await supabase
+                .from("telemedicina_pacientes")
+                .upsert({ user_id: userId, person_id: recoveredPersonId, cpf: cleanCPF }, { onConflict: "user_id" });
+            }
 
-          if (retryPso.ok) {
-            psoStatus = retryPso.status;
-            psoResponseBody = await retryPso.text();
-            personId = recoveredPersonId;
+            retryPso = await fetch(
+              `${DAV_BASE_URL}/credential/pso/person/${recoveredPersonId}`,
+              { method: "POST", headers: davHeaders }
+            );
 
-            await writeLog(userId, userEmail, "PSO_GENERATE", `Recovery 404 OK - novo person_id: ${recoveredPersonId}`, "SUCCESS", {
-              step: "5_PSO_RECOVERY_OK",
-              new_person_id: recoveredPersonId,
-            });
-          } else {
-            psoStatus = retryPso.status;
-            psoResponseBody = await retryPso.text();
+            if (retryPso.ok) {
+              psoStatus = retryPso.status;
+              psoResponseBody = await retryPso.text();
+              personId = recoveredPersonId;
+              await writeLog(userId, userEmail, "PSO_GENERATE", `Recovery 404 OK - person_id: ${recoveredPersonId}`, "SUCCESS", {
+                step: "5_PSO_RECOVERY_OK",
+                new_person_id: recoveredPersonId,
+              });
+            } else {
+              psoStatus = retryPso.status;
+              psoResponseBody = await retryPso.text();
+            }
           }
         }
       }

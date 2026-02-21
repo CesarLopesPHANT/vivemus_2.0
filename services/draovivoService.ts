@@ -2015,7 +2015,21 @@ export const buscarDocumentosRecentes = async (
  *
  * @returns IntegrationResult com url do PSO ou erro
  */
+// Lock de deduplicacao: evita chamadas paralelas ao pso-proxy (race condition na DAV)
+let _psoInflight: Promise<IntegrationResult> | null = null;
+
 export const obterLinkPSO = async (): Promise<IntegrationResult> => {
+  if (_psoInflight) return _psoInflight;
+
+  _psoInflight = _obterLinkPSOImpl();
+  try {
+    return await _psoInflight;
+  } finally {
+    _psoInflight = null;
+  }
+};
+
+const _obterLinkPSOImpl = async (): Promise<IntegrationResult> => {
   try {
     const { data: { session } } = await supabase.auth.getSession();
 

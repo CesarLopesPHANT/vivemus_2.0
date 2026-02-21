@@ -10,16 +10,25 @@ interface PSOCacheEntry {
 }
 
 let cache: PSOCacheEntry | null = null;
-let fetching = false;
+let _inflight: Promise<PSOCacheEntry | null> | null = null;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function fetchPSO(): Promise<PSOCacheEntry | null> {
-  if (fetching) return cache;
-  fetching = true;
+  // Deduplicacao: se ja existe fetch em andamento, reutilizar mesma promise
+  if (_inflight) return _inflight;
 
+  _inflight = _fetchPSOImpl();
+  try {
+    return await _inflight;
+  } finally {
+    _inflight = null;
+  }
+}
+
+async function _fetchPSOImpl(): Promise<PSOCacheEntry | null> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) { fetching = false; return cache; }
+    if (!session?.access_token) return cache;
 
     // Tenta sync-on-login primeiro (retorna PSO como side-effect)
     const { data, error } = await supabase.functions.invoke('sync-on-login', {
@@ -28,7 +37,6 @@ export async function fetchPSO(): Promise<PSOCacheEntry | null> {
 
     if (!error && data?.pso?.url) {
       cache = { url: data.pso.url, personId: data.pso.personId, fetchedAt: Date.now() };
-      fetching = false;
       return cache;
     }
 
@@ -42,8 +50,6 @@ export async function fetchPSO(): Promise<PSOCacheEntry | null> {
     }
   } catch {
     // Falha silenciosa
-  } finally {
-    fetching = false;
   }
   return cache;
 }
