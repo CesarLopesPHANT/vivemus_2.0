@@ -27,9 +27,12 @@ if (keystorePropertiesFile.exists()) {
 }
 
 react {
+    // autolinkLibrariesWithApp() removido - será gerado pelo React Native CLI
     // Configura o plugin React Native Gradle
     // Defaults: bundleInDebug = false, bundleInRelease = true
     // hermesEnabled configurado via gradle.properties
+    reactNativeDir = file("../../node_modules/react-native")
+    codegenDir = file("../../node_modules/@react-native/codegen")
 }
 
 android {
@@ -43,8 +46,8 @@ android {
         applicationId "com.vivemus.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "2.1.0"
+        versionCode 62
+        versionName "1.1.7"
 
         // x-api-key disponivel como BuildConfig.DAV_API_KEY no Java
         buildConfigField "String", "DAV_API_KEY", "\"${davApiKey}\""
@@ -84,12 +87,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "11"
     }
 }
 

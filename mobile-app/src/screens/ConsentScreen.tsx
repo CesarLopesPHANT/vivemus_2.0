@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,21 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
+  Alert,
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from 'react-native';
+
+// ⚠️  AÇÃO NECESSÁRIA: Substitua pelas URLs reais dos seus documentos legais
+const TERMS_URL = 'https://vivemus.com.br/termos-de-uso';
+const PRIVACY_URL = 'https://vivemus.com.br/politica-de-privacidade';
+
+const openURL = (url: string) => {
+  Linking.openURL(url).catch(() =>
+    Alert.alert('Erro', 'Não foi possível abrir o link.')
+  );
+};
 
 interface ConsentScreenProps {
   onAccepted: () => void;
@@ -122,6 +134,17 @@ const ConsentScreen: React.FC<ConsentScreenProps> = ({ onAccepted }) => {
             <Text style={styles.acceptButtonText}>Aceitar e Continuar</Text>
           )}
         </TouchableOpacity>
+
+        {/* Links legais obrigatórios — App Store & Google Play */}
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={() => openURL(TERMS_URL)} activeOpacity={0.7}>
+            <Text style={styles.legalLinkText}>Termos de Uso</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalSeparator}>·</Text>
+          <TouchableOpacity onPress={() => openURL(PRIVACY_URL)} activeOpacity={0.7}>
+            <Text style={styles.legalLinkText}>Política de Privacidade</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -177,6 +200,15 @@ const styles = StyleSheet.create({
   },
   acceptButtonDisabled: { backgroundColor: '#cbd5e1' },
   acceptButtonText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    gap: 8,
+  },
+  legalLinkText: { fontSize: 12, color: '#2563eb', textDecorationLine: 'underline' },
+  legalSeparator: { fontSize: 12, color: '#94a3b8' },
 });
 
 export default ConsentScreen;

@@ -1,0 +1,30 @@
+# Dependências
+node_modules/
+
+# Build Android
+android/build/
+android/app/build/
+android/.gradle/
+
+# Build iOS
+ios/build/
+ios/Pods/
+ios/DerivedData/
+
+# ⛔ SEGREDOS — NUNCA commitar keystore ou senhas
+android/app/*.jks
+android/app/keystore.properties
+android/keystore.properties
+credentials.json
+
+# Arquivos locais
+*.local
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cache Metro
+.metro-health-check*

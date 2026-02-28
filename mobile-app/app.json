@@ -1,4 +1,14 @@
 {
   "name": "VivemusMobile",
-  "displayName": "Vivemus"
+  "displayName": "Vivemus",
+  "slug": "vivemusv2",
+  "version": "1.1.7",
+  "android": {
+    "versionCode": 62
+  },
+  "extra": {
+    "eas": {
+      "projectId": "55d57a0e-5b29-4591-a8d8-da8a9add1beb"
+    }
+  }
 }

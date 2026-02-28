@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import HomeScreen from '../screens/HomeScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import TeleconsultaScreen from '../screens/TeleconsultaScreen';
 import ConsentScreen from '../screens/ConsentScreen';
 import SplashScreen from '../components/SplashScreen';
@@ -90,7 +91,7 @@ const TabNavigator = () => {
         />
         <Tab.Screen
           name="Perfil"
-          component={HomeScreen}
+          component={ProfileScreen}
           options={{ tabBarLabel: 'Perfil' }}
         />
       </Tab.Navigator>
@@ -176,6 +177,14 @@ const AppNavigator: React.FC = () => {
     initialize();
     return () => { mountedRef.current = false; };
   }, [initialize]);
+
+  // Reinicia fluxo de autenticação após exclusão de conta (LGPD / Apple 5.1.1)
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('accountDeleted', () => {
+      setInit(INIT_DEFAULT);
+    });
+    return () => sub.remove();
+  }, []);
 
   // Inicia prefetch de PSO apos autenticacao e consentimento
   useEffect(() => {
