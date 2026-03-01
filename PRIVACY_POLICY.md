@@ -110,7 +110,7 @@ Os dados podem ser processados em servidores localizados fora do Brasil (infraes
 Para duvidas, solicitacoes ou reclamacoes relacionadas ao tratamento de seus dados pessoais:
 
 - **E-mail:** privacidade@vivemus.com.br
-- **Responsavel:** Encarregado de Protecao de Dados — Vivemus Tecnologia em Saude Ltda.
+- **Responsavel:** Encarregado de Protecao de Dados — Vivemus Plataforma de beneficios Ltda.
 
 Voce tambem pode apresentar reclamacao a Autoridade Nacional de Protecao de Dados (ANPD) em [www.gov.br/anpd](https://www.gov.br/anpd).
 
