@@ -8,7 +8,6 @@ import {
   Users,
   Plus,
   Lock,
-  ArrowRight,
   CheckCircle2,
   Building2,
   AlertCircle,
@@ -25,18 +24,12 @@ interface UserProfileProps {
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate }) => {
-  const [showAddDependent, setShowAddDependent] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success'>('idle');
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  
-  const [dependents, setDependents] = useState([
-    { name: 'Maria Oliveira', relation: 'Cônjuge', active: true },
-    { name: 'Joãozinho Oliveira', relation: 'Filho', active: true }
-  ]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,37 +205,23 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate }) => {
                 <Users size={24} className="text-blue-600" />
                 Dependentes
               </h3>
-              <button 
-                onClick={() => setShowAddDependent(true)}
+              <button
+                onClick={() => window.open('https://vivemus.com.br/', '_blank')}
                 className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 font-bold rounded-xl hover:bg-emerald-600 hover:text-white active:scale-95 hover:scale-[1.02] transition-all text-sm"
               >
                 <Plus size={18} />
-                Adicionar
+                Novo dependente
               </button>
             </div>
 
-            <div className="space-y-4">
-              {dependents.map((dep, idx) => (
-                <div key={idx} className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-100 hover:border-blue-100 transition-all group">
-                   <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
-                         <User size={22} />
-                      </div>
-                      <div>
-                         <p className="font-bold text-slate-800">{dep.name}</p>
-                         <p className="text-xs text-slate-500">{dep.relation}</p>
-                      </div>
-                   </div>
-                   <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">Ativo</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
-               <AlertCircle className="text-amber-600 shrink-0" size={24} />
-               <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                  <strong>Nota Financeira:</strong> A inclusão de dependentes gera uma cobrança adicional recorrente no seu faturamento mensal via Asaas.
-               </p>
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
+                <Users size={28} className="text-slate-300" />
+              </div>
+              <p className="text-sm font-semibold text-slate-500 mb-1">Nenhum dependente cadastrado</p>
+              <p className="text-xs text-slate-400">
+                Gerencie seus dependentes pelo site Vivemus.
+              </p>
             </div>
           </section>
         </div>
@@ -268,53 +247,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate }) => {
         </button>
       </section>
 
-      {/* MODAL DE ADIÇÃO (ASAAS) */}
-      {showAddDependent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-              <div className="p-10 text-center">
-                 <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                    <Users size={40} />
-                 </div>
-                 <h3 className="text-2xl font-bold text-slate-800">Novo Dependente</h3>
-                 <p className="text-slate-500 text-sm mt-2 mb-8 px-4">Utilizamos o checkout seguro do <b>Asaas</b> para processar o valor adicional do seu plano.</p>
-                 
-                 <div className="bg-slate-50 p-6 rounded-3xl mb-8 space-y-4 text-left border border-slate-100">
-                    <div className="flex justify-between text-sm">
-                       <span className="text-slate-500 font-medium">Valor Adicional</span>
-                       <span className="font-bold text-slate-800">R$ 29,90 / mês</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                       <span className="text-slate-500 font-medium">Ativação Imediata</span>
-                       <span className="font-bold text-emerald-600 uppercase text-[10px] bg-emerald-100 px-2 py-1 rounded">SIM</span>
-                    </div>
-                    <div className="pt-4 border-t border-slate-200 flex justify-between items-baseline">
-                       <span className="font-bold text-slate-800">Total</span>
-                       <span className="text-2xl font-black text-blue-600">R$ 29,90</span>
-                    </div>
-                 </div>
-
-                 <div className="space-y-4">
-                    <button className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-95 hover:scale-[1.02] transition-all flex items-center justify-center gap-2">
-                       Acessar Checkout
-                       <ArrowRight size={20} />
-                    </button>
-                    <button 
-                      onClick={() => setShowAddDependent(false)}
-                      className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-all active:scale-90"
-                    >
-                      Depois eu faço
-                    </button>
-                 </div>
-
-                 <p className="text-[10px] text-slate-400 mt-8 uppercase font-bold tracking-widest flex items-center justify-center gap-1.5 opacity-60">
-                   <ShieldCheck size={14} />
-                   Segurança Vivemus & Asaas
-                 </p>
-              </div>
-           </div>
-        </div>
-      )}
       {/* MODAL DE EXCLUSAO DE CONTA (LGPD) */}
       {showDeleteAccount && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">

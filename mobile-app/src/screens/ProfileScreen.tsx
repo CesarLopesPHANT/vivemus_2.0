@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 
-// ⚠️  AÇÃO NECESSÁRIA: Substitua pelas URLs reais dos seus documentos legais
-const TERMS_URL = 'https://vivemus.com.br/termos-de-uso';
+const TERMS_URL   = 'https://vivemus.com.br/termos-de-uso';
 const PRIVACY_URL = 'https://vivemus.com.br/politica-de-privacidade';
+const SITE_URL    = 'https://vivemus.com.br/';
 
 const openURL = (url: string) => {
   Linking.openURL(url).catch(() =>
@@ -25,50 +25,32 @@ const openURL = (url: string) => {
 const ProfileScreen: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ── Passo 2 de 2: executa a exclusão após confirmação dupla ──────────────
   const performDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      // Chama RPC no Supabase que apaga dados do usuário (LGPD Art. 18, VI)
-      // Você deve criar a função `delete_user_account` no seu Supabase:
-      //   CREATE OR REPLACE FUNCTION delete_user_account()
-      //   RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
-      //   BEGIN
-      //     DELETE FROM profiles WHERE id = auth.uid();
-      //     -- adicione outras tabelas conforme necessário
-      //   END; $$;
       const { error: rpcError } = await supabase.rpc('delete_user_account');
       if (rpcError) throw rpcError;
-
-      // Encerra a sessão autenticada
       await supabase.auth.signOut();
-
       Alert.alert(
         'Conta Excluída',
-        'Seus dados pessoais foram removidos com sucesso, conforme previsto na LGPD (Lei 13.709/2018).',
-        [
-          {
-            text: 'OK',
-            // Emite evento global para AppNavigator redefinir o estado de auth
-            onPress: () => DeviceEventEmitter.emit('accountDeleted'),
-          },
-        ]
+        'Seus dados pessoais foram removidos conforme a LGPD (Lei 13.709/2018).',
+        [{ text: 'OK', onPress: () => DeviceEventEmitter.emit('accountDeleted') }]
       );
     } catch {
       Alert.alert(
         'Erro ao Excluir',
-        'Não foi possível excluir a conta no momento.\nTente novamente ou contate: suporte@vivemus.com.br'
+        'Não foi possível excluir a conta.\nContate: suporte@vivemus.com.br'
       );
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // ── Confirmação dupla — obrigatória pela Apple (App Store Rule 5.1.1) ────
+  // Dupla confirmação — obrigatória pela Apple (App Store Rule 5.1.1)
   const handleDeleteAccount = () => {
     Alert.alert(
       'Excluir Minha Conta',
-      'Esta ação irá remover permanentemente todos os seus dados pessoais do Vivemus, incluindo histórico de consultas e documentos médicos.\n\nDeseja continuar?',
+      'Esta ação removerá permanentemente todos os seus dados do Vivemus, incluindo histórico de consultas.\n\nDeseja continuar?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -77,14 +59,10 @@ const ProfileScreen: React.FC = () => {
           onPress: () =>
             Alert.alert(
               'Confirmação Final',
-              'ATENÇÃO: Esta ação é irreversível. Seus dados serão permanentemente excluídos conforme a LGPD.\n\nConfirmar exclusão definitiva?',
+              'Esta ação é irreversível. Seus dados serão excluídos conforme a LGPD.\n\nConfirmar?',
               [
                 { text: 'Cancelar', style: 'cancel' },
-                {
-                  text: 'Excluir Permanentemente',
-                  style: 'destructive',
-                  onPress: performDeleteAccount,
-                },
+                { text: 'Excluir Permanentemente', style: 'destructive', onPress: performDeleteAccount },
               ]
             ),
         },
@@ -93,10 +71,8 @@ const ProfileScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+
       {/* Cabeçalho */}
       <View style={styles.header}>
         <View style={styles.avatar}>
@@ -106,15 +82,28 @@ const ProfileScreen: React.FC = () => {
         <Text style={styles.userSubtitle}>Gerencie sua conta e seus dados</Text>
       </View>
 
-      {/* Seção: Documentos Legais */}
+      {/* Dependentes */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Dependentes</Text>
+          <TouchableOpacity onPress={() => openURL(SITE_URL)} activeOpacity={0.7}>
+            <Text style={styles.addBtn}>+ Novo dependente</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>👨‍👩‍👧</Text>
+          <Text style={styles.emptyText}>Nenhum dependente cadastrado</Text>
+          <Text style={styles.emptyHint}>
+            Gerencie dependentes pelo site Vivemus
+          </Text>
+        </View>
+      </View>
+
+      {/* Documentos Legais */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Documentos Legais</Text>
 
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => openURL(TERMS_URL)}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.menuItem} onPress={() => openURL(TERMS_URL)} activeOpacity={0.7}>
           <View style={styles.menuItemLeft}>
             <Text style={styles.menuItemIcon}>📄</Text>
             <Text style={styles.menuItemText}>Termos de Uso</Text>
@@ -122,11 +111,7 @@ const ProfileScreen: React.FC = () => {
           <Text style={styles.menuItemArrow}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.menuItem, styles.menuItemLast]}
-          onPress={() => openURL(PRIVACY_URL)}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={[styles.menuItem, styles.menuItemLast]} onPress={() => openURL(PRIVACY_URL)} activeOpacity={0.7}>
           <View style={styles.menuItemLeft}>
             <Text style={styles.menuItemIcon}>🔒</Text>
             <Text style={styles.menuItemText}>Política de Privacidade</Text>
@@ -135,65 +120,59 @@ const ProfileScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Seção: Dados e Conta */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Dados e Conta</Text>
-
+      {/* Rodapé com link discreto de exclusão */}
+      <View style={styles.footer}>
+        <Text style={styles.version}>Vivemus v1.1.7</Text>
         <TouchableOpacity
-          style={[styles.deleteButton, isDeleting && styles.deleteButtonDisabled]}
           onPress={handleDeleteAccount}
           disabled={isDeleting}
-          activeOpacity={0.8}
+          activeOpacity={0.6}
+          style={styles.deleteLink}
         >
-          {isDeleting ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Text style={styles.deleteButtonIcon}>🗑</Text>
-              <Text style={styles.deleteButtonText}>Excluir Minha Conta</Text>
-            </>
-          )}
+          {isDeleting
+            ? <ActivityIndicator size="small" color="#ef4444" />
+            : <Text style={styles.deleteLinkText}>Excluir minha conta</Text>
+          }
         </TouchableOpacity>
-
-        <Text style={styles.deleteHint}>
-          A exclusão é permanente e remove todos os seus dados pessoais
-          conforme a LGPD (Lei 13.709/2018, Art. 18, VI).
-        </Text>
       </View>
 
-      {/* Versão do app — usa version do app.json (visível nas stores) */}
-      <Text style={styles.version}>Vivemus v1.1.7</Text>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 24, paddingTop: 52, paddingBottom: 48 },
+  content: { padding: 24, paddingTop: 52, paddingBottom: 40 },
 
   // Cabeçalho
-  header: { alignItems: 'center', marginBottom: 32 },
+  header: { alignItems: 'center', marginBottom: 28 },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#dbeafe',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  avatarText: { fontSize: 38 },
-  userName: { fontSize: 22, fontWeight: '800', color: '#0f172a', marginBottom: 4 },
-  userSubtitle: { fontSize: 13, color: '#94a3b8' },
+  avatarText: { fontSize: 34 },
+  userName: { fontSize: 20, fontWeight: '800', color: '#0f172a', marginBottom: 2 },
+  userSubtitle: { fontSize: 12, color: '#94a3b8' },
 
   // Seções
   section: {
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#f1f5f9',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 11,
@@ -201,8 +180,18 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 12,
   },
+  addBtn: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+
+  // Estado vazio — dependentes
+  emptyState: { alignItems: 'center', paddingVertical: 20 },
+  emptyIcon: { fontSize: 28, marginBottom: 8 },
+  emptyText: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 4 },
+  emptyHint: { fontSize: 11, color: '#94a3b8' },
 
   // Itens de menu
   menuItem: {
@@ -215,37 +204,18 @@ const styles = StyleSheet.create({
   },
   menuItemLast: { borderBottomWidth: 0 },
   menuItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  menuItemIcon: { fontSize: 16 },
+  menuItemIcon: { fontSize: 15 },
   menuItemText: { fontSize: 15, color: '#0f172a', fontWeight: '500' },
   menuItemArrow: { fontSize: 22, color: '#94a3b8' },
 
-  // Botão de exclusão
-  deleteButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 16,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  deleteButtonDisabled: { backgroundColor: '#fca5a5' },
-  deleteButtonIcon: { fontSize: 15 },
-  deleteButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  deleteHint: {
+  // Rodapé discreto
+  footer: { alignItems: 'center', marginTop: 8, gap: 10 },
+  version: { fontSize: 11, color: '#cbd5e1' },
+  deleteLink: { paddingVertical: 6, paddingHorizontal: 12 },
+  deleteLinkText: {
     fontSize: 11,
     color: '#94a3b8',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-
-  // Rodapé
-  version: {
-    textAlign: 'center',
-    fontSize: 11,
-    color: '#cbd5e1',
-    marginTop: 8,
+    textDecorationLine: 'underline',
   },
 });
 

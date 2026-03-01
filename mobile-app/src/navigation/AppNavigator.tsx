@@ -5,44 +5,46 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import LoginScreen from '../screens/LoginScreen';
 import TeleconsultaScreen from '../screens/TeleconsultaScreen';
 import ConsentScreen from '../screens/ConsentScreen';
 import SplashScreen from '../components/SplashScreen';
 import ConsultationBanner from '../components/ConsultationBanner';
 import { ConsultationProvider, useConsultation } from '../context/ConsultationContext';
 import { startAutoRefresh, stopAutoRefresh } from '../lib/psoCache';
+import { supabase } from '../lib/supabase';
 
 const { PipModule, TeleconsultaServiceModule } = NativeModules;
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Estado centralizado de inicializacao — evita flicker entre renders parciais
+// ─── Estado centralizado — evita flicker entre renders parciais ───────────────
 interface InitState {
-  authReady: boolean;
-  consentChecked: boolean;
-  consentAccepted: boolean;
-  brandLoaded: boolean;
+  splashDone:      boolean; // todas as verificações concluídas
+  isLoggedIn:      boolean; // sessão Supabase ativa
+  consentAccepted: boolean; // TCLE aceito
+  brandLoaded:     boolean; // configurações de branding carregadas
 }
 
 const INIT_DEFAULT: InitState = {
-  authReady: false,
-  consentChecked: false,
+  splashDone:      false,
+  isLoggedIn:      false,
   consentAccepted: false,
-  brandLoaded: false,
+  brandLoaded:     false,
 };
 
-// TabNavigator com banner de consulta em andamento
+// ─── Tab Navigator com banner de consulta ────────────────────────────────────
 const TabNavigator = () => {
   const navigation = useNavigation<any>();
   const [isInPipMode, setIsInPipMode] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    const subscription = DeviceEventEmitter.addListener('onPipModeChanged', (inPip: boolean) => {
+    const sub = DeviceEventEmitter.addListener('onPipModeChanged', (inPip: boolean) => {
       setIsInPipMode(inPip);
     });
-    return () => subscription.remove();
+    return () => sub.remove();
   }, []);
 
   return (
@@ -69,44 +71,22 @@ const TabNavigator = () => {
           },
         }}
       >
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{ tabBarLabel: 'Home' }}
-        />
-        <Tab.Screen
-          name="Agenda"
-          component={HomeScreen}
-          options={{ tabBarLabel: 'Agenda' }}
-        />
-        <Tab.Screen
-          name="IA"
-          component={HomeScreen}
-          options={{ tabBarLabel: 'IA' }}
-        />
-        <Tab.Screen
-          name="Saude"
-          component={HomeScreen}
-          options={{ tabBarLabel: 'Saude' }}
-        />
-        <Tab.Screen
-          name="Perfil"
-          component={ProfileScreen}
-          options={{ tabBarLabel: 'Perfil' }}
-        />
+        <Tab.Screen name="Home"   component={HomeScreen}    options={{ tabBarLabel: 'Home' }} />
+        <Tab.Screen name="Agenda" component={HomeScreen}    options={{ tabBarLabel: 'Agenda' }} />
+        <Tab.Screen name="IA"     component={HomeScreen}    options={{ tabBarLabel: 'IA' }} />
+        <Tab.Screen name="Saude"  component={HomeScreen}    options={{ tabBarLabel: 'Saude' }} />
+        <Tab.Screen name="Perfil" component={ProfileScreen} options={{ tabBarLabel: 'Perfil' }} />
       </Tab.Navigator>
     </View>
   );
 };
 
-// Gerenciador de servicos vinculado ao estado da consulta
+// ─── Gerenciador de Foreground Service + PiP ─────────────────────────────────
 const ConsultationServiceManager: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isActive } = useConsultation();
 
-  // Gerencia PiP e Foreground Service baseado no estado global da consulta
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-
     if (isActive) {
       PipModule?.setTeleconsultaAtiva(true);
       TeleconsultaServiceModule?.iniciar().catch(() => {});
@@ -119,35 +99,28 @@ const ConsultationServiceManager: React.FC<{ children: React.ReactNode }> = ({ c
   return <>{children}</>;
 };
 
+// ─── AppNavigator ─────────────────────────────────────────────────────────────
 const AppNavigator: React.FC = () => {
   const [init, setInit] = useState<InitState>(INIT_DEFAULT);
   const mountedRef = useRef(true);
 
-  // Gate principal: so renderiza conteudo apos TODAS as verificacoes
-  const isReady = init.authReady && init.consentChecked && init.brandLoaded;
-
-  // Inicializacao consolidada — executa todas as promises em paralelo
-  // para minimizar o tempo de splash e evitar renders intermediarios
+  // ── Inicialização paralela — minimiza tempo de splash ─────────────────────
   const initialize = useCallback(async () => {
     try {
       const results = await Promise.allSettled([
-        // 1. Verificar sessao Supabase Auth
+        // 1. Verificar sessão Supabase Auth (real)
         (async () => {
-          // TODO: integrar com Supabase Auth real
-          return true;
+          const { data: { session } } = await supabase.auth.getSession();
+          return !!session;
         })(),
 
         // 2. Verificar consentimento LGPD/TCLE
-        (async () => {
-          // TODO: substituir por chamada real ao Supabase
-          return false; // TODO: chamada real
-        })(),
+        // TODO: substituir por chamada real ao Supabase (tabela consents)
+        (async () => false)(),
 
-        // 3. Carregar configuracoes de branding/parceiro
-        (async () => {
-          // TODO: integrar com system_settings do Supabase
-          return true;
-        })(),
+        // 3. Carregar configurações de branding/parceiro
+        // TODO: integrar com system_settings do Supabase
+        (async () => true)(),
       ]);
 
       if (!mountedRef.current) return;
@@ -155,20 +128,15 @@ const AppNavigator: React.FC = () => {
       const [authResult, consentResult, brandResult] = results;
 
       setInit({
-        authReady: authResult.status === 'fulfilled',
-        consentChecked: true,
+        splashDone:      true,
+        isLoggedIn:      authResult.status === 'fulfilled' && authResult.value === true,
         consentAccepted: consentResult.status === 'fulfilled' && consentResult.value === true,
-        brandLoaded: brandResult.status === 'fulfilled',
+        brandLoaded:     brandResult.status === 'fulfilled',
       });
     } catch {
       if (!mountedRef.current) return;
-      // Em caso de erro total, libera a tela para o usuario nao ficar preso no splash
-      setInit({
-        authReady: true,
-        consentChecked: true,
-        consentAccepted: false,
-        brandLoaded: true,
-      });
+      // Erro total: libera splash para o usuário não ficar preso
+      setInit({ splashDone: true, isLoggedIn: false, consentAccepted: false, brandLoaded: true });
     }
   }, []);
 
@@ -178,7 +146,7 @@ const AppNavigator: React.FC = () => {
     return () => { mountedRef.current = false; };
   }, [initialize]);
 
-  // Reinicia fluxo de autenticação após exclusão de conta (LGPD / Apple 5.1.1)
+  // ── Escuta exclusão de conta → reinicia fluxo (LGPD / Apple 5.1.1) ────────
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('accountDeleted', () => {
       setInit(INIT_DEFAULT);
@@ -186,29 +154,44 @@ const AppNavigator: React.FC = () => {
     return () => sub.remove();
   }, []);
 
-  // Inicia prefetch de PSO apos autenticacao e consentimento
+  // ── Prefetch PSO após login + consentimento ────────────────────────────────
   useEffect(() => {
-    if (init.authReady && init.consentAccepted) {
+    if (init.isLoggedIn && init.consentAccepted) {
       startAutoRefresh();
       return () => stopAutoRefresh();
     }
-  }, [init.authReady, init.consentAccepted]);
+  }, [init.isLoggedIn, init.consentAccepted]);
 
-  // ===== SPLASH: Aguarda hidratacao completa antes de renderizar qualquer conteudo =====
-  if (!isReady) {
+  // ═══════════════════ GATES DE RENDERIZAÇÃO ════════════════════════════════
+
+  // 1. Splash: aguarda todas as verificações
+  if (!init.splashDone) {
     return <SplashScreen />;
   }
 
-  // ===== GATE: Consentimento LGPD obrigatorio antes de acessar o app =====
-  if (!init.consentAccepted) {
+  // 2. Login: usuário sem sessão ativa
+  if (!init.isLoggedIn) {
     return (
-      <ConsentScreen
-        onAccepted={() => setInit((prev: InitState) => ({ ...prev, consentAccepted: true }))}
+      <LoginScreen
+        onLoginSuccess={() =>
+          setInit((prev) => ({ ...prev, isLoggedIn: true }))
+        }
       />
     );
   }
 
-  // ===== APP: Renderiza somente apos init completo + consent aceito =====
+  // 3. Consentimento LGPD obrigatório antes do app
+  if (!init.consentAccepted) {
+    return (
+      <ConsentScreen
+        onAccepted={() =>
+          setInit((prev) => ({ ...prev, consentAccepted: true }))
+        }
+      />
+    );
+  }
+
+  // 4. App completo
   return (
     <ConsultationProvider>
       <ConsultationServiceManager>
