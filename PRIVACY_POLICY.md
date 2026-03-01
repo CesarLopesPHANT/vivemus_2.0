@@ -2,7 +2,7 @@
 
 **Ultima atualizacao:** 20 de fevereiro de 2026
 
-A Vivemus Tecnologia em Saude Ltda. ("Vivemus", "nos") opera a plataforma Vivemus de teleconsulta medica. Esta Politica de Privacidade descreve como coletamos, usamos, armazenamos e protegemos seus dados pessoais, em conformidade com a Lei Geral de Protecao de Dados (LGPD — Lei 13.709/2018).
+A Vivemus Plataforma de beneficios Ltda. ("Vivemus", "nos") opera a plataforma Vivemus de teleconsulta medica. Esta Politica de Privacidade descreve como coletamos, usamos, armazenamos e protegemos seus dados pessoais, em conformidade com a Lei Geral de Protecao de Dados (LGPD — Lei 13.709/2018).
 
 ---
 
